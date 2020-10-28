@@ -41,15 +41,63 @@ class Org():
         df.columns = range(df.shape[1])
         df.columns = [*df.columns[:-1], "class"]    #give column containing class label 'class'
         newdf = self.missingData(df)
+        
         df = self.normalize(newdf)
         return(df)      #returns edited file
 
-    def missingData(self, df):      #CHANGEEEE
-        for column in range(df.shape[1] - 1):
-            for row in range(df.shape[0]):
-                if df[column][row] == '?':
-                    df[column][row] = 1
-                    #df[column][row] = random.choice(df[column])
+    def missingData(self, df):
+        print(df)
+        classoptions = df["class"].unique()
+        
+        if (len(classoptions)<20): #this if statement prevents a regression data set from running this function
+                                    #only classification data sets have missing values in this case
+                                    #classtables holds the dataframes for each class
+            
+            classtables = [] #creates table for each class, filling it with rows associated with that class
+            
+            for i in classoptions:
+                classtables.append(pd.DataFrame(columns = df.columns))
+            df2 = classtables[1]
+            for row in df.iterrows():
+                for i in range(len(classoptions)):
+                    if (row[1][df.shape[1]-1] == classoptions[i]):
+                        classtables[i] = classtables[i].append(pd.Series(row[1]),ignore_index=True)
+            
+            prob = pd.DataFrame(columns = ['class', 'feature', 'chosen', 'highest prob']) #this data frame will be used to store a probabiltity table 
+            
+            for table in range(len(classtables)):
+               
+                mini = pd.DataFrame(columns = ['class', 'feature', 'chosen', 'highest prob'])  #mini is the dataframe for each class
+                df2 = classtables[table]
+                
+                whichclass = df2["class"][1]#stores what class the data belong to
+                for i in range(df2.shape[1]-2):
+                    
+                    options = pd.value_counts(df2[i]) #computes for each feature the number of occurrences of each value. Like 146 1s, 45 2s, etc. 
+                    totaloptionsum = 0
+                    indexes = options.index#indexes store features
+                    for o in range(len(options)):#for each feature, adds up all occurrences. Should be the same for each feature in that class
+                        totaloptionsum += options[o]
+                    chosen = 0 
+                    highestprob = 0
+                    for p in range(len(options)): #for each feature computes all probabilities, choosing the highest probability and its correlated value
+                        probability = options[p]/totaloptionsum
+                        if probability>highestprob :
+                            highestprob = probability
+                            chosen = indexes[p]
+                    mini.loc[i] = [whichclass,i, chosen, highestprob] #Adds the chosen class, the feeature, the chosen value, and the highest prob to the dataframe for the class
+                prob = prob.append(mini)#adds the dataframe for the class to the probability table
+                
+            
+            for column in range(df.shape[1] - 1):#checks the dataframe for ? values
+                for row in range(df.shape[0]): #finds corresponding class and feature in the probability table, gives the missing value the value of the highest probability                                 
+                    if df[column][row] == '?':
+                        for r in prob.iterrows():
+                            if ((column == r[1][1]) and (df["class"][row] == r[1][0])) :
+                              
+                                df[column][row] = r[1][2]
+
+                  
         return(df)
 
     def normalize(self, file):
